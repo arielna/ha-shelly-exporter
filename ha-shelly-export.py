@@ -31,8 +31,8 @@ if missing_modules:
     print(f"pip3 install {' '.join(missing_modules)}")
     sys.exit(1)
 
-def get_shelly_switches(ha_url, token):
-    """Get Shelly switch entities from Home Assistant API"""
+def get_shelly_devices(ha_url, token):
+    """Get Shelly device entities from Home Assistant API"""
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
@@ -68,8 +68,8 @@ def get_shelly_switches(ha_url, token):
         all_entities = states_response.json()
         print(f"Retrieved {len(all_entities)} total entities from Home Assistant")
         
-        # Filter for Shelly switch entities
-        shelly_switches = []
+        # Filter for Shelly device entities
+        shelly_devices = []
         seen_ids = set()  # To prevent duplicates
         
         # Process switch entities
@@ -78,23 +78,25 @@ def get_shelly_switches(ha_url, token):
             attributes = entity.get("attributes", {})
             friendly_name = attributes.get("friendly_name", entity_id)
             
-            # Only process switch entities
+            # Only process switch or cover entities
+            # User requested: All covers, but only Shelly switches
             is_switch = entity_id.startswith("switch.") and "shelly" in entity_id.lower()
+            is_cover = entity_id.startswith("cover.")
             is_availability = "availability" in entity_id.lower() or "connectivity" in entity_id.lower()
             
-            if is_switch and not is_availability:
+            if (is_switch or is_cover) and not is_availability:
                 # Check if this is a duplicate
                 if entity_id not in seen_ids:
                     seen_ids.add(entity_id)
-                    print(f"Found Shelly switch: {entity_id} ({friendly_name})")
+                    print(f"Found Shelly device: {entity_id} ({friendly_name})")
                     
-                    shelly_switches.append({
+                    shelly_devices.append({
                         "id": entity_id,
                         "name": friendly_name
                     })
         
-        print(f"\nFound {len(shelly_switches)} unique Shelly switch entities")
-        return shelly_switches
+        print(f"\nFound {len(shelly_devices)} unique Shelly device entities")
+        return shelly_devices
     
     except requests.exceptions.RequestException as e:
         print(f"Connection error: {e}")
@@ -111,12 +113,12 @@ def get_shelly_switches(ha_url, token):
 def export_to_csv(entities, output_file=None):
     """Export the entities list to a CSV file"""
     if not entities:
-        print("No Shelly switch entities to export. CSV file will not be created.")
+        print("No Shelly device entities to export. CSV file will not be created.")
         return None
         
     if not output_file:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_file = f"shelly_switches_{timestamp}.csv"
+        output_file = f"shelly_devices_{timestamp}.csv"
     
     # Print current working directory for debugging
     print(f"Current working directory: {os.getcwd()}")
@@ -131,7 +133,7 @@ def export_to_csv(entities, output_file=None):
             for entity in entities:
                 writer.writerow(entity)
         
-        print(f"Successfully exported {len(entities)} Shelly switch entities to {output_file}")
+        print(f"Successfully exported {len(entities)} Shelly device entities to {output_file}")
         # Check if file exists after writing
         if os.path.exists(output_file):
             print(f"Verified: File exists at {os.path.abspath(output_file)}")
@@ -148,10 +150,10 @@ def export_to_csv(entities, output_file=None):
     return output_file
 
 def main():
-    parser = argparse.ArgumentParser(description='Export Shelly switch entities from Home Assistant to CSV')
+    parser = argparse.ArgumentParser(description='Export Shelly device entities from Home Assistant to CSV')
     parser.add_argument('--url', required=False, help='Home Assistant URL (e.g., http://homeassistant.local:8123) (can also be set via HA_URL env var)')
     parser.add_argument('--token', required=False, help='Long-lived access token for Home Assistant (can also be set via HA_TOKEN env var)')
-    parser.add_argument('--output', help='Output CSV file path (default: shelly_switches_<timestamp>.csv)')
+    parser.add_argument('--output', help='Output CSV file path (default: shelly_devices_<timestamp>.csv)')
     
     # Load environment variables
     load_dotenv()
@@ -171,18 +173,18 @@ def main():
         sys.exit(1)
     
     print("=" * 50)
-    print("Home Assistant Shelly Switch Entity Export Tool")
+    print("Home Assistant Shelly Device Entity Export Tool")
     print("=" * 50)
     print(f"Home Assistant URL: {ha_url}")
     print(f"Token provided: {'Yes (length: ' + str(len(token)) + ' characters)' if token else 'No'}")
     print(f"Output file: {args.output if args.output else 'Auto-generated filename'}")
     
     try:
-        print("\nFetching Shelly switch entities from Home Assistant...")
-        entities = get_shelly_switches(ha_url, token)
+        print("\nFetching Shelly device entities from Home Assistant...")
+        entities = get_shelly_devices(ha_url, token)
         
         if not entities:
-            print("\nNo Shelly switch entities found. Please check:")
+            print("\nNo Shelly device entities found. Please check:")
             print("1. Your Home Assistant instance is running")
             print("2. Your token has the necessary permissions")
             print("3. You have Shelly devices configured in Home Assistant")
@@ -193,7 +195,7 @@ def main():
         
         if output_file:
             print("\nExport Summary:")
-            print(f"- Successfully exported {len(entities)} Shelly switch entities")
+            print(f"- Successfully exported {len(entities)} Shelly device entities")
             print(f"- CSV file location: {os.path.abspath(output_file)}")
             print("\nCSV file contents preview:")
             print("-" * 60)
